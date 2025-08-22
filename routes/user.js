@@ -1,7 +1,9 @@
 const dotenv = require('dotenv')
-const verifyJWTToken = require('../middleware/verifyToken')
-const {hashPassword} = require('../middleware/hashPassword')
+const jwt = require('jsonwebtoken')
+const verifyJWTToken= require('../middleware/verifyToken')
+const {hashPassword , verifyPassword} = require('../middleware/hashPassword')
 const supabase = require('../config/supabase')
+
 
 const router = require('express').Router()
 
@@ -41,9 +43,40 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// login 
+router.post('/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email);
+
+        if (error) throw new Error(error.message);
+        if (data.length === 0) return res.status(401).json({ message: "อีเมลไม่ถูกต้อง" });
+
+        const user = data[0];
+        const valid = await verifyPassword(password, user.hash_password)
+        if (!valid) {
+            return res.status(401).json({ message: "username password ไม่ตรงกัน" });
+        }
+
+        const payload = { email: user.email, role: user.role };
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
+
+        return res.status(200).json({ payload, token });
+    } catch (err) {
+        return res.status(500).json({ message: `เกิดข้อผิดพลาดในการล็อกอิน: ${err.message}` });
+    }
+});
 
 // login with token
+router.post('/signinWithToken' , verifyJWTToken , (req , res)=>{
+    res.json({
+        message: 'เข้าถึงโปรไฟล์ได้',
+        user: req.user  // ข้อมูล payload จาก JWT
+    });
+})
+
 
 // reset password
 
