@@ -60,7 +60,7 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: "username password ไม่ตรงกัน" });
         }
 
-        const payload = { email: user.email, role: user.role };
+        const payload = { uid : user.uid,  email: user.email, role: user.role };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
 
         return res.status(200).json({ payload, token });
