@@ -14,6 +14,10 @@ app.use(express.json())
 app.use('/user' , userRouter)
 app.use('/member' , memberRouter)
 
+app.get('/' , ()=>{
+    res.json({hello : 'world'})
+})
+
 const PORT = process.env.PORT || 3000
 
 app.listen(PORT , ()=>{
