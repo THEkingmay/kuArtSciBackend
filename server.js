@@ -14,7 +14,7 @@ app.use(express.json())
 app.use('/user' , userRouter)
 app.use('/member' , memberRouter)
 
-app.get('/' , ()=>{
+app.get('/' , (req,res)=>{
     res.json({hello : 'world'})
 })
 
