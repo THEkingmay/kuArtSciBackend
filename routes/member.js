@@ -1,24 +1,88 @@
 const supabase =require('../config/supabase');
 const verifyJWTToken = require('../middleware/verifyToken');
 const router = require('express').Router()
+const {sendEmailToAdmin , sendEmailToUser} = require('../config/email')
+const upload= require('../config/upload')
 
-// register
-router.post('/register' , async(req, res)=>{
-    const {data , error} = await supabase.from('member_registrations')
-    .insert([req.body])
-    .select()
-   if (error) {
-    // ✅ ตรวจสอบว่าผิดเพราะ unique constraint หรือไม่
-    if (error.code === "23505" || error.message.includes("duplicate key")) {
-        return res.status(400).json({ message: "รหัสนิสิตนี้เคยสมัครแล้ว" });
+
+router.post('/register', upload.single('slip'), async (req, res) => {
+    function toIntOrNull(value) {
+        const n = parseInt(value, 10);
+        return !isNaN(n) ? n : null;
     }
-    // ❌ กรณีเกิด error อื่น ๆ
-    return res.status(500).json({
-        message: `มีปัญหาในการส่งแบบสมัคร: ${error.message}`,
-    });
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: "กรุณาอัปโหลดสลิป" });
+        }
+
+                // สร้างชื่อไฟล์ใหม่ ป้องกันภาษาไทย + ตัวอักษรพิเศษ
+        const originalName = req.file.originalname;
+        const ext = originalName.split('.').pop(); // หานามสกุลไฟล์
+        const sanitizedBaseName = originalName
+            .replace(/\.[^/.]+$/, "")            // ตัดนามสกุลเก่าออก
+            .replace(/[^a-zA-Z0-9-_]/g, "");    // ลบตัวอักษรพิเศษและภาษาไทยออก
+
+        // สร้างชื่อไฟล์ใหม่ ปลอดภัยสำหรับ Supabase
+        const slip_payment_name = `${Date.now()}_${sanitizedBaseName}.${ext}`;
+        const fileBuffer = req.file.buffer;
+
+        const { error: uploadError } = await supabase.storage
+            .from("member_slip_payment")
+            .upload(slip_payment_name, fileBuffer, {
+                contentType: req.file.mimetype,
+            });
+
+        if (uploadError) {
+            console.log(uploadError)
+            return res.status(500).json({ message: "อัปโหลดสลิปไม่สำเร็จ", error: uploadError.message });
+        }
+
+        const newRegisteration = {
+            ...req.body,
+            age: toIntOrNull(req.body.age),
+            bachelor_degree_ku_batch: toIntOrNull(req.body.bachelor_degree_ku_batch),
+            bachelor_degree_as_batch: toIntOrNull(req.body.bachelor_degree_as_batch),
+            bachelor_degree_start_year: toIntOrNull(req.body.bachelor_degree_start_year),
+            bachelor_degree_end_year: toIntOrNull(req.body.bachelor_degree_end_year),
+            master_degree_ku_batch: toIntOrNull(req.body.master_degree_ku_batch),
+            master_degree_as_batch: toIntOrNull(req.body.master_degree_as_batch),
+            master_degree_start_year: toIntOrNull(req.body.master_degree_start_year),
+            master_degree_end_year: toIntOrNull(req.body.master_degree_end_year),
+            doctoral_degree_ku_batch: toIntOrNull(req.body.doctoral_degree_ku_batch),
+            doctoral_degree_as_batch: toIntOrNull(req.body.doctoral_degree_as_batch),
+            doctoral_degree_start_year: toIntOrNull(req.body.doctoral_degree_start_year),
+            doctoral_degree_end_year: toIntOrNull(req.body.doctoral_degree_end_year),
+            slip_payment_name
+        };
+
+        const { data, error } = await supabase
+            .from('member_registrations')
+            .insert([newRegisteration])
+            .select();
+
+        if (error) {
+            if (error.code === "23505" || error.message.includes("duplicate key")) {
+                return res.status(400).json({ message: "รหัสนิสิตนี้เคยสมัครแล้ว" });
+            }
+            console.log(error)
+            return res.status(500).json({ message: `มีปัญหาในการส่งแบบสมัคร: ${error.message}` });
+        }
+
+        // try {
+        //     await sendEmailToAdmin(
+        //         'มีคนสมัครสมาชิกมาใหม่',
+        //         `รหัสนิสิต ${req.body.student_id}`
+        //     );
+        // } catch (emailErr) {
+        //     console.error("ส่งอีเมลไม่สำเร็จ:", emailErr);
+        // }
+
+        return res.status(200).json({ message: "ส่งแบบสมัครเรียบร้อย", data });
+
+    } catch (err) {
+        return res.status(500).json({ message: `เกิดข้อผิดพลาด: ${err.message}` });
     }
-    res.status(200).json({message : "ส่งแบบสมัครเรียบร้อย" , data})
-})
+});
 
 router.post('/updateMemberRegistration', verifyJWTToken, async (req, res) => {
     const { registration_id, newStatus } = req.body;
