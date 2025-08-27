@@ -10,6 +10,12 @@ router.post('/register', upload.single('slip'), async (req, res) => {
         const n = parseInt(value, 10);
         return !isNaN(n) ? n : null;
     }
+    const normalizeNull = (value) => {
+        if (value === '' || value === undefined || value === 'undefined' || value === null) {
+            return null;
+        }
+        return value;
+    };
     try {
         if (!req.file) {
             return res.status(400).json({ message: "กรุณาอัปโหลดสลิป" });
@@ -38,7 +44,9 @@ router.post('/register', upload.single('slip'), async (req, res) => {
         }
 
         const newRegisteration = {
-            ...req.body,
+            ...Object.fromEntries(
+                Object.entries(req.body).map(([key, value]) => [key, normalizeNull(value)])
+            ),  
             age: toIntOrNull(req.body.age),
             bachelor_degree_ku_batch: toIntOrNull(req.body.bachelor_degree_ku_batch),
             bachelor_degree_as_batch: toIntOrNull(req.body.bachelor_degree_as_batch),
@@ -68,14 +76,14 @@ router.post('/register', upload.single('slip'), async (req, res) => {
             return res.status(500).json({ message: `มีปัญหาในการส่งแบบสมัคร: ${error.message}` });
         }
 
-        // try {
-        //     await sendEmailToAdmin(
-        //         'มีคนสมัครสมาชิกมาใหม่',
-        //         `รหัสนิสิต ${req.body.student_id}`
-        //     );
-        // } catch (emailErr) {
-        //     console.error("ส่งอีเมลไม่สำเร็จ:", emailErr);
-        // }
+        try {
+            await sendEmailToAdmin(
+                'มีคนสมัครสมาชิกมาใหม่',
+                `รหัสนิสิต ${req.body.student_id}`
+            );
+        } catch (emailErr) {
+            console.error("ส่งอีเมลไม่สำเร็จ:", emailErr);
+        }
 
         return res.status(200).json({ message: "ส่งแบบสมัครเรียบร้อย", data });
 
@@ -178,6 +186,15 @@ router.get('/getMemberRegisteration' , async(req , res) =>{
         if(error) return res.status(401).json({message: `เกิดข้อผิดพลาดในการดึงข้อมูล ${error.message}`})
 
         return res.status(200).json({data})
+    }catch(err){
+        return res.status(500).json({message : err.message})
+    }
+})
+
+// get Image
+router.get('/getSlipImage' , async (req, res)=>{
+    try{
+        return res.status(201).json({slipname : req.slip_payment_name})
     }catch(err){
         return res.status(500).json({message : err.message})
     }

@@ -25,12 +25,12 @@ async function sendEmailToAdmin(subject , text) {
         console.error(err);
     }
 }
-async function sendEmailToUser(subject , text){
+async function sendEmailToUser(userEmail, subject, text){
     let mailOptions = {
-        from: process.env.ADMIN_SEND_MAIL,       // ใครส่ง
-        to:userEmail,  // ใครรับ
-        subject:subject,           // หัวข้อเมล
-        text: text, 
+        from: process.env.ADMIN_SEND_MAIL,
+        to: userEmail,
+        subject: subject,
+        text: text,
     };
     try {
         const info = await transporter.sendMail(mailOptions);
