@@ -138,6 +138,15 @@ router.post('/updateMemberRegistration', verifyJWTToken, async (req, res) => {
             if (insertError) {
                 return res.status(500).json({ message: insertError.message });
             }
+            try {
+            await sendEmailToUser(
+                current.contact_email ,
+                'ผลการสมัครสมาชิกสมาคมศิษย์เก่า ศวท.',
+                `รหัสนิสิต ${current.student_id} ได้รับการอนุมัติเป็นในการเข้าร่วมสมาคมศิษย์เก่าแล้ว!`
+                );
+            } catch (emailErr) {
+                console.error("ส่งอีเมลไม่สำเร็จ:", emailErr);
+            }
 
             return res.status(200).json({ message: 'อนุมัติสมาชิกสำเร็จ' });
         }
@@ -163,10 +172,18 @@ router.post('/updateMemberRegistration', verifyJWTToken, async (req, res) => {
             if (deleteError) {
                 return res.status(500).json({ message: deleteError.message });
             }
-
+             try {
+                await sendEmailToUser(
+                    current.contact_email ,
+                    'ผลการสมัครสมาชิกสมาคมศิษย์เก่า ศวท.',
+                    `รหัสนิสิต ${current.student_id} ถูกปฏิเสธในการเข้าร่วมสมาคมศิษย์เก่า !`
+                    );
+                } catch (emailErr) {
+                    console.error("ส่งอีเมลไม่สำเร็จ:", emailErr);
+                }
             return res.status(200).json({ message: 'ปฏิเสธสมาชิกสำเร็จ' });
         }
-
+        
         // 5. ถ้าสถานะไม่ถูกต้อง
         return res.status(400).json({ message: 'สถานะไม่ถูกต้อง' });
 
@@ -178,7 +195,7 @@ router.post('/updateMemberRegistration', verifyJWTToken, async (req, res) => {
 // delete 
 
 // get  
-router.get('/getMemberRegisteration' , async(req , res) =>{
+router.get('/getMemberRegisteration' ,verifyJWTToken , async(req , res) =>{
     try{
         const {data , error} = await supabase.from('member_registrations')
         .select('*').order('submitted_at');
@@ -192,9 +209,16 @@ router.get('/getMemberRegisteration' , async(req , res) =>{
 })
 
 // get Image
-router.get('/getSlipImage' , async (req, res)=>{
+router.post('/getSlipImage' , verifyJWTToken ,async (req, res)=>{
     try{
-        return res.status(201).json({slipname : req.slip_payment_name})
+        const { data, error } = await supabase
+        .storage
+        .from("member_slip_payment") // ชื่อ bucket ของเม
+        .createSignedUrl(req.body.slip_payment_name, 60 * 5); // ลิงก์หมดอายุใน 5 นาที
+
+        if(error) return res.status(401).json({message : error.message})
+
+        return res.status(201).json({slip_url : data.signedUrl})
     }catch(err){
         return res.status(500).json({message : err.message})
     }
