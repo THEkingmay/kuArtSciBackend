@@ -6,6 +6,7 @@ const upload= require('../config/upload')
 
 
 router.post('/register', upload.single('transcript'), async (req, res) => {
+    // return console.log(req.body)
     function toIntOrNull(value) {
         const n = parseInt(value, 10);
         return !isNaN(n) ? n : null;
@@ -95,7 +96,6 @@ router.post('/register', upload.single('transcript'), async (req, res) => {
 router.post('/updateMemberRegistration', verifyJWTToken, async (req, res) => {
     const { registration_id, newStatus } = req.body;
     const { uid } = req.user; // id ของแอดมิน
-
     try {
         // 1. ดึงข้อมูลการสมัครปัจจุบัน
         const { data: registrations, error: fetchError } = await supabase
