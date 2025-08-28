@@ -5,7 +5,7 @@ const {sendEmailToAdmin , sendEmailToUser} = require('../config/email')
 const upload= require('../config/upload')
 
 
-router.post('/register', upload.single('slip'), async (req, res) => {
+router.post('/register', upload.single('transcript'), async (req, res) => {
     function toIntOrNull(value) {
         const n = parseInt(value, 10);
         return !isNaN(n) ? n : null;
@@ -29,12 +29,12 @@ router.post('/register', upload.single('slip'), async (req, res) => {
             .replace(/[^a-zA-Z0-9-_]/g, "");    // ลบตัวอักษรพิเศษและภาษาไทยออก
 
         // สร้างชื่อไฟล์ใหม่ ปลอดภัยสำหรับ Supabase
-        const slip_payment_name = `${Date.now()}_${sanitizedBaseName}.${ext}`;
+        const transcript_image_name = `${Date.now()}_${sanitizedBaseName}.${ext}`;
         const fileBuffer = req.file.buffer;
 
         const { error: uploadError } = await supabase.storage
-            .from("member_slip_payment")
-            .upload(slip_payment_name, fileBuffer, {
+            .from("transcript_image")
+            .upload(transcript_image_name, fileBuffer, {
                 contentType: req.file.mimetype,
             });
 
@@ -60,7 +60,7 @@ router.post('/register', upload.single('slip'), async (req, res) => {
             doctoral_degree_as_batch: toIntOrNull(req.body.doctoral_degree_as_batch),
             doctoral_degree_start_year: toIntOrNull(req.body.doctoral_degree_start_year),
             doctoral_degree_end_year: toIntOrNull(req.body.doctoral_degree_end_year),
-            slip_payment_name
+            transcript_image_name
         };
 
         const { data, error } = await supabase
@@ -209,19 +209,35 @@ router.get('/getMemberRegisteration' ,verifyJWTToken , async(req , res) =>{
 })
 
 // get Image
-router.post('/getSlipImage' , verifyJWTToken ,async (req, res)=>{
-    try{
+router.post('/getTranscriptImage', verifyJWTToken, async (req, res) => {
+    try {
+        const { transcript_image_name } = req.body;
+
+        // ✅ 1. ตรวจสอบก่อนว่ามีชื่อไฟล์ไหม
+        if (!transcript_image_name || typeof transcript_image_name !== 'string') {
+            return res.status(400).json({ 
+                message: "กรุณาระบุ transcript_image_name ที่ถูกต้อง" 
+            });
+        }
+
+        // ✅ 2. ขอ signed URL จาก Supabase
         const { data, error } = await supabase
-        .storage
-        .from("member_slip_payment") // ชื่อ bucket ของเม
-        .createSignedUrl(req.body.slip_payment_name, 60 * 5); // ลิงก์หมดอายุใน 5 นาที
+            .storage
+            .from("transcript_image") // ชื่อ bucket ของเม
+            .createSignedUrl(transcript_image_name, 60 * 5); // ลิงก์หมดอายุใน 5 นาที
 
-        if(error) return res.status(401).json({message : error.message})
+        // ✅ 3. เช็ค error จาก Supabase
+        if (error) {
+            return res.status(401).json({ message: error.message });
+        }
 
-        return res.status(201).json({slip_url : data.signedUrl})
-    }catch(err){
-        return res.status(500).json({message : err.message})
+        // ✅ 4. ส่ง URL กลับ
+        return res.status(200).json({ transcript_URL: data.signedUrl });
+
+    } catch (err) {
+        console.error("❌ ERROR: ", err);
+        return res.status(500).json({ message: "เกิดข้อผิดพลาดในเซิร์ฟเวอร์" });
     }
-})
+});
 
 module.exports = router
